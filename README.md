@@ -45,6 +45,9 @@ npx expo start
    - Delete birthdays you no longer need
    - View age and days until next birthday
    - Get notifications on the specified date and time
+  
+![app](https://github.com/user-attachments/assets/93c1a311-bc8b-4639-ab35-0f82db3bd9c2)
+
 
 ## Technologies Used
 
