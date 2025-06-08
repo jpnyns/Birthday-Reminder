@@ -51,6 +51,11 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error loading birthdays:', error);
+      Alert.alert(
+        'Error Loading Data',
+        'Could not load saved birthdays. Please try restarting the app. If the problem persists, data might be corrupted.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -95,25 +100,39 @@ export default function App() {
 
   const scheduleNotification = async (birthday: Birthday) => {
     const now = new Date();
-    const notificationDate = new Date(birthday.date);
-    notificationDate.setHours(birthday.notificationTime.getHours());
-    notificationDate.setMinutes(birthday.notificationTime.getMinutes());
 
-    if (notificationDate < now) {
-      notificationDate.setFullYear(now.getFullYear() + 1);
+    // Construct the date for the next birthday event
+    const nextNotificationDateTime = new Date(
+      now.getFullYear(), // Start with current year
+      birthday.date.getMonth(),
+      birthday.date.getDate(),
+      birthday.notificationTime.getHours(),
+      birthday.notificationTime.getMinutes(),
+      0, 0 // seconds, milliseconds
+    );
+
+    // If this constructed date/time is in the past for the current year, advance to next year
+    if (nextNotificationDateTime < now) {
+      nextNotificationDateTime.setFullYear(now.getFullYear() + 1);
     }
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Birthday Reminder! 🎉',
-        body: `Today is ${birthday.name}'s birthday! They will be ${calculateAge(birthday.date) + 1} years old.`,
-      },
-      trigger: {
-        type: 'timeInterval',
-        seconds: Math.floor((notificationDate.getTime() - Date.now()) / 1000),
-        repeats: true
-      } as Notifications.NotificationTriggerInput,
-    });
+    const ageTurning = nextNotificationDateTime.getFullYear() - birthday.date.getFullYear();
+    const notificationId = `birthday-${birthday.id}`; // Use a predictable ID
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: notificationId,
+        content: {
+          title: 'Birthday Reminder! 🎉',
+          body: `It's ${birthday.name}'s birthday today! They are turning ${ageTurning}.`,
+        },
+        trigger: nextNotificationDateTime,
+      });
+      console.log(`Notification scheduled for ${birthday.name} on ${nextNotificationDateTime} with id ${notificationId}`);
+    } catch (error) {
+      console.error(`Failed to schedule notification for ${birthday.name}:`, error);
+      Alert.alert('Error', `Could not schedule notification for ${birthday.name}.`);
+    }
   };
 
   const addBirthday = async () => {
@@ -139,6 +158,16 @@ export default function App() {
   };
 
   const deleteBirthday = async (id: string) => {
+    const notificationId = `birthday-${id}`;
+    try {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      console.log(`Notification cancelled for id: ${notificationId}`);
+    } catch (error) {
+      console.error(`Failed to cancel notification for id ${notificationId}:`, error);
+      // Optionally, inform the user if cancellation fails, though it might not be critical path.
+      // Alert.alert('Error', 'Could not cancel scheduled reminder for the deleted birthday.');
+    }
+
     const newBirthdays = birthdays.filter(b => b.id !== id);
     await saveBirthdays(newBirthdays);
   };
